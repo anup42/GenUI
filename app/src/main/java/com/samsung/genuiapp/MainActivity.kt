@@ -1,13 +1,18 @@
 package com.samsung.genuiapp
 
+import android.Manifest
 import android.content.ContentResolver
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.webkit.WebSettings
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.samsung.genuiapp.databinding.ActivityMainBinding
@@ -15,13 +20,29 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isModelReady = false
+    private var pendingModelPath: String? = null
 
     private val pickModelFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { handleModelUri(it) } ?: updateStatus("No file selected.")
+    }
+
+    private val storagePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.entries.all { it.value }
+        val pathToRetry = pendingModelPath
+        pendingModelPath = null
+        if (granted && pathToRetry != null) {
+            loadModelInternal(pathToRetry)
+        } else if (!granted) {
+            updateStatus("Storage permission denied. Use Browse to pick the model file or grant access.")
+            resetLoadingUi()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +73,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restoreLastModelPath() {
-        val lastPath = getPreferences(MODE_PRIVATE).getString(KEY_MODEL_PATH, null)
+        val prefs = getPreferences(MODE_PRIVATE)
+        val lastPath = prefs.getString(KEY_MODEL_PATH, null)
         val initialPath = lastPath?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_PATH
         binding.modelPathInput.setText(initialPath)
     }
@@ -64,6 +86,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (requiresLegacyStoragePermission(modelPath) && !hasStoragePermission()) {
+            pendingModelPath = modelPath
+            storagePermissionLauncher.launch(requiredStoragePermissions())
+            return
+        }
+
+        loadModelInternal(modelPath)
+    }
+
+    private fun loadModelInternal(requestedPath: String) {
         binding.progressBar.isVisible = true
         updateStatus("Loading model...")
         binding.loadModelButton.isEnabled = false
@@ -71,10 +103,17 @@ class MainActivity : AppCompatActivity() {
         binding.releaseModelButton.isEnabled = false
 
         val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
-
         lifecycleScope.launch {
+            val preparedPath = withContext(Dispatchers.IO) { prepareModelFile(requestedPath) }
+            if (preparedPath == null) {
+                binding.progressBar.isVisible = false
+                binding.loadModelButton.isEnabled = true
+                updateStatus("Unable to access model file. Use Browse to grant access or copy it into app storage.")
+                return@launch
+            }
+
             val success = withContext(Dispatchers.IO) {
-                runCatching { QwenCoderBridge.load(modelPath, threads) }.getOrElse { false }
+                runCatching { QwenCoderBridge.load(preparedPath, threads) }.getOrElse { false }
             }
 
             binding.progressBar.isVisible = false
@@ -84,11 +123,14 @@ class MainActivity : AppCompatActivity() {
                 isModelReady = true
                 binding.generateButton.isEnabled = true
                 binding.releaseModelButton.isEnabled = true
-                getPreferences(MODE_PRIVATE).edit().putString(KEY_MODEL_PATH, modelPath).apply()
+                getPreferences(MODE_PRIVATE).edit()
+                    .putString(KEY_MODEL_PATH, requestedPath)
+                    .putString(KEY_MODEL_LOCAL_PATH, preparedPath)
+                    .apply()
                 updateStatus("Model ready (threads=$threads)")
             } else {
                 isModelReady = false
-                updateStatus("Failed to load model. Check the path and GGUF format.")
+                updateStatus("Failed to load model. Check the path, permissions, and GGUF format.")
             }
         }
     }
@@ -176,6 +218,13 @@ class MainActivity : AppCompatActivity() {
         binding.statusText.text = message
     }
 
+    private fun resetLoadingUi() {
+        binding.progressBar.isVisible = false
+        binding.loadModelButton.isEnabled = true
+        binding.generateButton.isEnabled = isModelReady
+        binding.releaseModelButton.isEnabled = isModelReady
+    }
+
     override fun onDestroy() {
         if (isModelReady) {
             runCatching { QwenCoderBridge.release() }
@@ -196,12 +245,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleModelUri(uri: Uri) {
         val resolvedPath = resolveDocumentPath(uri)
-        if (resolvedPath != null) {
-            binding.modelPathInput.setText(resolvedPath)
-            updateStatus("Selected model: ${File(resolvedPath).name}")
-        } else {
-            updateStatus("Unable to resolve file path. Choose from device storage or enter the path manually.")
+        val displayText = resolvedPath ?: uri.toString()
+        val fileName = resolvedPath?.let { File(it).name }
+            ?: uri.lastPathSegment?.substringAfter('/')
+            ?: "model.gguf"
+
+        runCatching {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
         }
+
+        getPreferences(MODE_PRIVATE).edit()
+            .putString(KEY_MODEL_URI, uri.toString())
+            .putString(KEY_MODEL_PATH, displayText)
+            .remove(KEY_MODEL_LOCAL_PATH)
+            .apply()
+
+        binding.modelPathInput.setText(displayText)
+        binding.modelPathInput.setSelection(displayText.length)
+        updateStatus("Selected model: $fileName")
     }
 
     @Suppress("DEPRECATION")
@@ -240,8 +304,84 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
+    private fun requiresLegacyStoragePermission(path: String): Boolean {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) {
+            return false
+        }
+        if (path.startsWith("content://")) {
+            return false
+        }
+        val externalRoot = Environment.getExternalStorageDirectory().absolutePath
+        return path.startsWith(externalRoot)
+    }
+
+    private fun hasStoragePermission(): Boolean {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) {
+            return true
+        }
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requiredStoragePermissions(): Array<String> {
+        return if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) {
+            emptyArray()
+        } else {
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+    }
+
+    private fun prepareModelFile(requestedPath: String): String? {
+        val directFile = File(requestedPath)
+        if (directFile.exists() && directFile.canRead()) {
+            return directFile.absolutePath
+        }
+
+        val prefs = getPreferences(MODE_PRIVATE)
+        val cachedLocal = prefs.getString(KEY_MODEL_LOCAL_PATH, null)?.takeIf { it.isNotBlank() }
+        val cachedFile = cachedLocal?.let(::File)
+        if (cachedFile != null && cachedFile.exists() && cachedFile.canRead()) {
+            return cachedFile.absolutePath
+        }
+
+        val uriString = prefs.getString(KEY_MODEL_URI, null)?.takeIf { it.isNotBlank() }
+            ?: requestedPath.takeIf { it.startsWith("content://") }
+        val uri = uriString?.let(Uri::parse) ?: return null
+
+        return copyModelToPrivateStorage(uri)
+    }
+
+    private fun copyModelToPrivateStorage(uri: Uri): String? {
+        val modelsDir = File(filesDir, "models").apply { if (!exists()) mkdirs() }
+        val destination = File(modelsDir, guessFileName(uri))
+
+        return runCatching {
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destination).use { output ->
+                    input.copyTo(output)
+                }
+            } ?: throw IllegalStateException("Unable to open model URI")
+            destination.absolutePath
+        }.onFailure {
+            destination.delete()
+        }.getOrNull()
+    }
+
+    private fun guessFileName(uri: Uri): String {
+        val prefs = getPreferences(MODE_PRIVATE)
+        val recordedPathName = prefs.getString(KEY_MODEL_PATH, null)
+            ?.let { File(it).name }
+            ?.takeIf { it.isNotBlank() }
+        val uriName = uri.lastPathSegment?.substringAfter('/')?.takeIf { it.isNotBlank() }
+        return uriName ?: recordedPathName ?: "model.gguf"
+    }
+
     companion object {
         private const val KEY_MODEL_PATH = "model_path"
+        private const val KEY_MODEL_URI = "model_uri"
+        private const val KEY_MODEL_LOCAL_PATH = "model_local_path"
         private const val MAX_TOKENS = 1024
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
     }
