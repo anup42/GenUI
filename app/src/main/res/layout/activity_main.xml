@@ -11,6 +11,9 @@
         android:id="@+id/modelPathLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        app:endIconContentDescription="@string/select_model_file"
+        app:endIconDrawable="@drawable/ic_file_open"
+        app:endIconMode="custom"
         app:layout_constraintEnd_toStartOf="@+id/loadModelButton"
         app:layout_constraintHorizontal_bias="0"
         app:layout_constraintHorizontal_chainStyle="packed"
@@ -24,7 +27,7 @@
             android:hint="@string/model_path_hint"
             android:inputType="text"
             android:maxLines="1"
-            tools:text="/sdcard/Download/qwen2.5-coder-0.5b-int4.gguf" />
+            tools:text="/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
@@ -112,4 +115,3 @@
         app:layout_constraintTop_toBottomOf="@id/statusText" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

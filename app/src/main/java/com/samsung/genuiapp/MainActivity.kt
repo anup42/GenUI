@@ -1,7 +1,12 @@
-﻿package com.samsung.genuiapp
+package com.samsung.genuiapp
 
+import android.content.ContentResolver
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.DocumentsContract
 import android.webkit.WebSettings
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
@@ -9,10 +14,15 @@ import com.samsung.genuiapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isModelReady = false
+
+    private val pickModelFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { handleModelUri(it) } ?: updateStatus("No file selected.")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,6 +36,7 @@ class MainActivity : AppCompatActivity() {
         binding.generateButton.isEnabled = false
         binding.releaseModelButton.isEnabled = false
 
+        binding.modelPathLayout.setEndIconOnClickListener { openModelPicker() }
         binding.loadModelButton.setOnClickListener { loadModel() }
         binding.releaseModelButton.setOnClickListener { releaseModel() }
         binding.generateButton.setOnClickListener { generateUi() }
@@ -42,7 +53,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun restoreLastModelPath() {
         val lastPath = getPreferences(MODE_PRIVATE).getString(KEY_MODEL_PATH, null)
-        lastPath?.let { binding.modelPathInput.setText(it) }
+        val initialPath = lastPath?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_PATH
+        binding.modelPathInput.setText(initialPath)
     }
 
     private fun loadModel() {
@@ -178,12 +190,59 @@ class MainActivity : AppCompatActivity() {
             .replace(">", "&gt;")
     }
 
+    private fun openModelPicker() {
+        pickModelFile.launch(arrayOf("*/*"))
+    }
+
+    private fun handleModelUri(uri: Uri) {
+        val resolvedPath = resolveDocumentPath(uri)
+        if (resolvedPath != null) {
+            binding.modelPathInput.setText(resolvedPath)
+            updateStatus("Selected model: ${File(resolvedPath).name}")
+        } else {
+            updateStatus("Unable to resolve file path. Choose from device storage or enter the path manually.")
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveDocumentPath(uri: Uri): String? {
+        if (uri.scheme == ContentResolver.SCHEME_FILE) {
+            return uri.path
+        }
+
+        if (uri.scheme != ContentResolver.SCHEME_CONTENT) {
+            return null
+        }
+
+        if (!DocumentsContract.isDocumentUri(this, uri)) {
+            return null
+        }
+
+        val documentId = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: return null
+        if (documentId.startsWith("raw:")) {
+            return documentId.removePrefix("raw:")
+        }
+
+        val parts = documentId.split(":")
+        if (parts.size == 2) {
+            val type = parts[0]
+            val relativePath = parts[1]
+            val base = when (type.lowercase()) {
+                "primary" -> Environment.getExternalStorageDirectory().absolutePath
+                "home" -> Environment.getExternalStorageDirectory().absolutePath + "/Documents"
+                else -> null
+            }
+            if (base != null) {
+                return "$base/$relativePath"
+            }
+        }
+
+        return null
+    }
+
     companion object {
         private const val KEY_MODEL_PATH = "model_path"
         private const val MAX_TOKENS = 1024
+        private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
     }
 }
-
-
-
-
