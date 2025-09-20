@@ -1,0 +1,9 @@
+﻿<resources>
+    <string name="app_name">GenUIApp</string>
+    <string name="model_path_hint">Model file path (GGUF)</string>
+    <string name="prompt_hint">Enter prompt describing UI requirements</string>
+    <string name="load_model">Load Model</string>
+    <string name="release_model">Unload</string>
+    <string name="generate_html">Generate UI</string>
+    <string name="sample_prompt">Generate a simple HTML page with a hero banner, product cards, and a footer.</string>
+</resources>
