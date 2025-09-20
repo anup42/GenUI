@@ -14,7 +14,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import com.samsung.genuiapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +26,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isModelReady = false
     private var pendingModelPath: String? = null
-    private var canonicalModelPath: String? = null
-    private var suppressModelPathWatcher = false
 
     private val pickModelFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { handleModelUri(it) } ?: updateStatus("No file selected.")
@@ -54,7 +51,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configureWebView()
-        setupModelPathWatcher()
         restoreLastModelPath()
         binding.promptInput.setText(getString(R.string.sample_prompt))
 
@@ -76,45 +72,30 @@ class MainActivity : AppCompatActivity() {
         binding.previewWebView.setBackgroundColor(0x00000000)
     }
 
-    private fun setupModelPathWatcher() {
-        binding.modelPathInput.doAfterTextChanged { text ->
-            if (suppressModelPathWatcher) return@doAfterTextChanged
-            canonicalModelPath = text?.toString()?.trim()
-        }
-    }
-
     private fun restoreLastModelPath() {
         val prefs = getPreferences(MODE_PRIVATE)
-        val storedCanonical = prefs.getString(KEY_MODEL_PATH, null)
-        val canonical = storedCanonical?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_PATH
-        val storedDisplay = prefs.getString(KEY_MODEL_DISPLAY_NAME, null)?.takeIf { it.isNotBlank() }
-        val display = storedDisplay ?: deriveDisplayLabel(canonical)
-        updateModelInput(display, canonical)
+        val lastPath = prefs.getString(KEY_MODEL_PATH, null)
+        val initialPath = lastPath?.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_PATH
+        binding.modelPathInput.setText(initialPath)
     }
 
     private fun loadModel() {
-        val displayText = binding.modelPathInput.text?.toString()?.trim()
-        val pathToLoad = canonicalModelPath?.takeIf { it.isNotBlank() }
-            ?: displayText?.takeIf { it.isNotBlank() }
-
-        if (pathToLoad.isNullOrEmpty()) {
+        val modelPath = binding.modelPathInput.text?.toString()?.trim()
+        if (modelPath.isNullOrEmpty()) {
             updateStatus("Model path is required.")
             return
         }
 
-        canonicalModelPath = pathToLoad
-
-        if (requiresLegacyStoragePermission(pathToLoad) && !hasStoragePermission()) {
-            pendingModelPath = pathToLoad
+        if (requiresLegacyStoragePermission(modelPath) && !hasStoragePermission()) {
+            pendingModelPath = modelPath
             storagePermissionLauncher.launch(requiredStoragePermissions())
             return
         }
 
-        loadModelInternal(pathToLoad)
+        loadModelInternal(modelPath)
     }
 
     private fun loadModelInternal(requestedPath: String) {
-        canonicalModelPath = requestedPath
         binding.progressBar.isVisible = true
         updateStatus("Loading model...")
         binding.loadModelButton.isEnabled = false
@@ -142,10 +123,8 @@ class MainActivity : AppCompatActivity() {
                 isModelReady = true
                 binding.generateButton.isEnabled = true
                 binding.releaseModelButton.isEnabled = true
-                val displayLabel = binding.modelPathInput.text?.toString()?.trim().orEmpty()
                 getPreferences(MODE_PRIVATE).edit()
                     .putString(KEY_MODEL_PATH, requestedPath)
-                    .putString(KEY_MODEL_DISPLAY_NAME, displayLabel)
                     .putString(KEY_MODEL_LOCAL_PATH, preparedPath)
                     .apply()
                 updateStatus("Model ready (threads=$threads)")
@@ -266,11 +245,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleModelUri(uri: Uri) {
         val resolvedPath = resolveDocumentPath(uri)
-        val canonicalPath = resolvedPath ?: uri.toString()
+        val displayText = resolvedPath ?: uri.toString()
         val fileName = resolvedPath?.let { File(it).name }
-            ?: uri.lastPathSegment?.substringAfter('/')?.let(Uri::decode)
+            ?: uri.lastPathSegment?.substringAfter('/')
             ?: "model.gguf"
-        val displayLabel = toFriendlyModelLabel(fileName)
 
         runCatching {
             contentResolver.takePersistableUriPermission(
@@ -279,15 +257,14 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        updateModelInput(displayLabel, canonicalPath)
-
         getPreferences(MODE_PRIVATE).edit()
             .putString(KEY_MODEL_URI, uri.toString())
-            .putString(KEY_MODEL_PATH, canonicalPath)
-            .putString(KEY_MODEL_DISPLAY_NAME, displayLabel)
+            .putString(KEY_MODEL_PATH, displayText)
             .remove(KEY_MODEL_LOCAL_PATH)
             .apply()
 
+        binding.modelPathInput.setText(displayText)
+        binding.modelPathInput.setSelection(displayText.length)
         updateStatus("Selected model: $fileName")
     }
 
@@ -394,61 +371,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun guessFileName(uri: Uri): String {
         val prefs = getPreferences(MODE_PRIVATE)
-        val displayName = prefs.getString(KEY_MODEL_DISPLAY_NAME, null)
-            ?.replace(' ', '_')
-            ?.takeIf { it.isNotBlank() }
         val recordedPathName = prefs.getString(KEY_MODEL_PATH, null)
-            ?.let { runCatching { File(it).name }.getOrNull() }
+            ?.let { File(it).name }
             ?.takeIf { it.isNotBlank() }
-        val uriName = uri.lastPathSegment?.substringAfter('/')?.let(Uri::decode)?.takeIf { it.isNotBlank() }
-        return uriName ?: recordedPathName ?: displayName ?: "model.gguf"
-    }
-
-    private fun updateModelInput(displayText: String, canonicalPath: String) {
-        suppressModelPathWatcher = true
-        canonicalModelPath = canonicalPath
-        binding.modelPathInput.setText(displayText)
-        binding.modelPathInput.setSelection(binding.modelPathInput.text?.length ?: 0)
-        suppressModelPathWatcher = false
-    }
-
-    private fun deriveDisplayLabel(pathOrUri: String): String {
-        val candidate = if (pathOrUri.startsWith("content://")) {
-            runCatching { Uri.parse(pathOrUri).lastPathSegment }
-                .getOrNull()
-                ?.substringAfter('/')
-                ?.let(Uri::decode)
-        } else {
-            runCatching { File(pathOrUri).name }.getOrNull()
-        }
-        val fileName = candidate?.takeIf { it.isNotBlank() } ?: pathOrUri
-        return toFriendlyModelLabel(fileName)
-    }
-
-    private fun toFriendlyModelLabel(fileName: String): String {
-        val base = fileName.substringBeforeLast('.', fileName)
-        val tokens = base.split('-', '_').filter { it.isNotBlank() }
-        if (tokens.size >= 2) {
-            val first = tokens[0]
-            val second = tokens[1].let { token ->
-                if (token.endsWith("b", ignoreCase = true)) {
-                    token.dropLast(1) + "B"
-                } else {
-                    token
-                }
-            }
-            return "$first $second"
-        }
-        return base
+        val uriName = uri.lastPathSegment?.substringAfter('/')?.takeIf { it.isNotBlank() }
+        return uriName ?: recordedPathName ?: "model.gguf"
     }
 
     companion object {
         private const val KEY_MODEL_PATH = "model_path"
         private const val KEY_MODEL_URI = "model_uri"
         private const val KEY_MODEL_LOCAL_PATH = "model_local_path"
-        private const val KEY_MODEL_DISPLAY_NAME = "model_display"
         private const val MAX_TOKENS = 1024
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
     }
 }
-
