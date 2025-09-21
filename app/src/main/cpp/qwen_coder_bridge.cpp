@@ -16,11 +16,12 @@ static std::mutex g_mutex;
 static llama_model *g_model = nullptr;
 static llama_context *g_ctx = nullptr;
 static bool g_backend_initialized = false;
+static int g_active_threads = 1;
 
 namespace {
 
 constexpr int32_t kDefaultContext = 4096;
-constexpr int32_t kDefaultBatch = 64;
+constexpr int32_t kDefaultBatch = 128;
 
 static const char *kSystemInstructionLong = R"(You are TEXT2UI-CODER. Transform agent/assistant text into a single, self-contained, mobile-first HTML document suitable for rendering in a WebView.
 
@@ -90,19 +91,7 @@ static void release_locked() {
         llama_backend_free();
         g_backend_initialized = false;
     }
-}
-
-static bool decode_one(llama_context *ctx, llama_token tok, llama_pos pos) {
-    llama_batch batch = llama_batch_init(1, 0, 1);
-    batch.n_tokens = 1;
-    batch.token[0] = tok;
-    batch.pos[0] = pos;
-    batch.seq_id[0][0] = 0;
-    batch.n_seq_id[0] = 1;
-    batch.logits[0] = true;
-    const int rc = llama_decode(ctx, batch);
-    llama_batch_free(batch);
-    return rc == 0;
+    g_active_threads = 1;
 }
 
 static llama_token greedy_from_logits(llama_context *ctx, const llama_vocab *vocab) {
@@ -163,7 +152,7 @@ static std::vector<llama_token> tokenize_prompt(const llama_vocab *vocab, const 
 
 static bool prefill_prompt(const std::vector<llama_token> &tokens, llama_pos &n_past) {
     if (tokens.empty()) return false;
-    const int batch_cap = std::max<int>(kDefaultBatch, 32);
+    const int batch_cap = std::max<int>(kDefaultBatch, g_active_threads * 4);
     llama_batch batch = llama_batch_init(batch_cap, 0, 1);
 
     size_t consumed = 0;
@@ -208,9 +197,11 @@ static std::string generate_text(const std::vector<llama_token> &prompt_tokens, 
     output.reserve((size_t) std::max(128, max_tokens * 4));
 
     const int to_generate = std::max(1, max_tokens);
+    llama_batch decode_batch = llama_batch_init(1, 0, 1);
     for (int i = 0; i < to_generate; ++i) {
         llama_token next = greedy_from_logits(g_ctx, vocab);
         if (next < 0) {
+            llama_batch_free(decode_batch);
             return "[error] Failed to sample token.";
         }
         if (next == eos) {
@@ -219,11 +210,19 @@ static std::string generate_text(const std::vector<llama_token> &prompt_tokens, 
         if (!append_clean_piece(output, vocab, next)) {
             break;
         }
-        if (!decode_one(g_ctx, next, n_past)) {
+        decode_batch.n_tokens = 1;
+        decode_batch.token[0] = next;
+        decode_batch.pos[0] = n_past;
+        decode_batch.seq_id[0][0] = 0;
+        decode_batch.n_seq_id[0] = 1;
+        decode_batch.logits[0] = true;
+        if (llama_decode(g_ctx, decode_batch) != 0) {
+            llama_batch_free(decode_batch);
             return "[error] Failed to decode token.";
         }
         ++n_past;
     }
+    llama_batch_free(decode_batch);
 
     if (output.empty()) {
         output = "[error] Model returned empty response.";
@@ -274,7 +273,7 @@ Java_com_samsung_genuiapp_QwenCoderBridge_nativeInit(
 
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx = kDefaultContext;
-    cparams.n_batch = kDefaultBatch;
+    cparams.n_batch = std::max<int32_t>(kDefaultBatch, threads * 4);
     cparams.n_threads = threads;
     cparams.n_threads_batch = threads;
 
@@ -287,6 +286,7 @@ Java_com_samsung_genuiapp_QwenCoderBridge_nativeInit(
     }
 
     llama_set_n_threads(g_ctx, threads, threads);
+    g_active_threads = threads;
 
     env->ReleaseStringUTFChars(jModelPath, model_path);
     LOGI("Loaded Qwen coder model using %d threads", threads);
