@@ -54,15 +54,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/modelPathLayout" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/releaseModelButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/release_model"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/loadModelButton" />
-
     <TextView
         android:id="@+id/statusText"
         android:layout_width="0dp"
@@ -74,19 +65,8 @@
         android:textColor="@android:color/darker_gray"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/releaseModelButton"
+        app:layout_constraintTop_toBottomOf="@id/loadModelButton"
         tools:text="Waiting for input" />
-
-    <WebView
-        android:id="@+id/previewWebView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:background="@android:color/white"
-        app:layout_constraintBottom_toTopOf="@id/promptLayout"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/statusText" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/promptLayout"
@@ -97,7 +77,7 @@
         app:layout_constraintBottom_toTopOf="@id/generateButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/previewWebView">
+        app:layout_constraintTop_toBottomOf="@id/statusText">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/promptInput"

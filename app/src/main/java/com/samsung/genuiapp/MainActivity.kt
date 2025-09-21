@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
-import android.webkit.WebSettings
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -50,26 +49,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        configureWebView()
         restoreLastModelPath()
         binding.promptInput.setText(getString(R.string.sample_prompt))
 
         binding.generateButton.isEnabled = false
-        binding.releaseModelButton.isEnabled = false
 
         binding.modelPathLayout.setEndIconOnClickListener { openModelPicker() }
         binding.loadModelButton.setOnClickListener { loadModel() }
-        binding.releaseModelButton.setOnClickListener { releaseModel() }
         binding.generateButton.setOnClickListener { generateUi() }
-    }
-
-    private fun configureWebView() {
-        binding.previewWebView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            cacheMode = WebSettings.LOAD_NO_CACHE
-        }
-        binding.previewWebView.setBackgroundColor(0x00000000)
     }
 
     private fun restoreLastModelPath() {
@@ -100,7 +87,6 @@ class MainActivity : AppCompatActivity() {
         updateStatus("Loading model...")
         binding.loadModelButton.isEnabled = false
         binding.generateButton.isEnabled = false
-        binding.releaseModelButton.isEnabled = false
 
         val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
         lifecycleScope.launch {
@@ -122,7 +108,6 @@ class MainActivity : AppCompatActivity() {
             if (success) {
                 isModelReady = true
                 binding.generateButton.isEnabled = true
-                binding.releaseModelButton.isEnabled = true
                 getPreferences(MODE_PRIVATE).edit()
                     .putString(KEY_MODEL_PATH, requestedPath)
                     .putString(KEY_MODEL_LOCAL_PATH, preparedPath)
@@ -132,28 +117,6 @@ class MainActivity : AppCompatActivity() {
                 isModelReady = false
                 updateStatus("Failed to load model. Check the path, permissions, and GGUF format.")
             }
-        }
-    }
-
-    private fun releaseModel() {
-        if (!isModelReady) {
-            updateStatus("No model is loaded.")
-            return
-        }
-
-        binding.progressBar.isVisible = true
-        updateStatus("Releasing model...")
-        binding.generateButton.isEnabled = false
-        binding.releaseModelButton.isEnabled = false
-
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                runCatching { QwenCoderBridge.release() }
-            }
-            binding.progressBar.isVisible = false
-            isModelReady = false
-            binding.previewWebView.loadUrl("about:blank")
-            updateStatus("Model released.")
         }
     }
 
@@ -169,55 +132,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        binding.progressBar.isVisible = true
-        binding.generateButton.isEnabled = false
-        updateStatus("Generating layout...")
-
-        lifecycleScope.launch {
-            val prompt = buildPrompt(agentText)
-            val output = withContext(Dispatchers.IO) {
-                runCatching { QwenCoderBridge.generate(prompt, MAX_TOKENS) }
-                    .getOrElse { throwable -> "[error] ${throwable.localizedMessage}" }
-            }
-            binding.progressBar.isVisible = false
-            binding.generateButton.isEnabled = true
-            renderHtml(output)
+        val previewIntent = Intent(this, PreviewActivity::class.java).apply {
+            putExtra(PreviewActivity.EXTRA_PROMPT_TEXT, agentText)
         }
-    }
-
-    private fun renderHtml(html: String) {
-        val containsHtml = html.contains("<html", ignoreCase = true)
-        val sanitized = if (containsHtml) {
-            html
-        } else {
-            """
-                <html>
-                <head>
-                    <meta charset=\"utf-8\" />
-                    <style>
-                        body { font-family: sans-serif; padding: 16px; background-color: #FAFAFA; }
-                        pre { white-space: pre-wrap; word-break: break-word; }
-                    </style>
-                </head>
-                <body>
-                    <pre>${html.escapeForHtml()}</pre>
-                </body>
-                </html>
-            """.trimIndent()
-        }
-
-        if (html.startsWith("[error]")) {
-            updateStatus(html)
-        } else {
-            updateStatus("Preview refreshed (${sanitized.length} chars)")
-        }
-
-        binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
-    }
-
-    private fun buildPrompt(agentText: String): String {
-        val sanitizedAgentText = agentText.ifBlank { "No agent output provided." }
-        return USER_PROMPT_TEMPLATE.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
+        startActivity(previewIntent)
     }
 
     private fun updateStatus(message: String) {
@@ -228,7 +146,6 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.isVisible = false
         binding.loadModelButton.isEnabled = true
         binding.generateButton.isEnabled = isModelReady
-        binding.releaseModelButton.isEnabled = isModelReady
     }
 
     override fun onDestroy() {
@@ -236,13 +153,6 @@ class MainActivity : AppCompatActivity() {
             runCatching { QwenCoderBridge.release() }
         }
         super.onDestroy()
-    }
-
-    private fun String.escapeForHtml(): String {
-        return this
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
     }
 
     private fun openModelPicker() {
@@ -388,29 +298,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_MODEL_PATH = "model_path"
         private const val KEY_MODEL_URI = "model_uri"
         private const val KEY_MODEL_LOCAL_PATH = "model_local_path"
-        private const val MAX_TOKENS = 1024
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
-        private const val USER_PROMPT_PLACEHOLDER = "{{agent_text}}"
-        private val USER_PROMPT_TEMPLATE = """
-            TASK: Turn the agent output into a production-quality, mobile-first GUI for a WebView.
-
-            # runtime_config
-            {
-              "pattern_hint": "auto",
-              "interaction_style": "tap",
-              "javascript": "minimal",
-              "theme": { "mode": "light", "brand_color": "#0EA5E9" },
-              "i18n_locale": "en-IN",
-              "host_actions": ["open_link","call_contact","pay_bill","navigate","retry"]
-            }
-
-            # agent_text
-            {{agent_text}}
-
-            # constraints
-            - Output only ONE ```html code block.
-            - Use only inline CSS/SVG; no external assets.
-            - Put data-action and, when helpful, data-payload JSON on all interactive elements.
-        """.trimIndent()
     }
 }
