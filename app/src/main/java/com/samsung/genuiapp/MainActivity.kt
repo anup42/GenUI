@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         binding.generateButton.isEnabled = false
         binding.generateMinimalButton.isEnabled = false
 
-        val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
+        val threadConfig = CpuThreadHeuristics.recommendedConfig()
         lifecycleScope.launch {
             val preparedPath = withContext(Dispatchers.IO) { prepareModelFile(requestedPath) }
             if (preparedPath == null) {
@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val success = withContext(Dispatchers.IO) {
-                runCatching { QwenCoderBridge.load(preparedPath, threads) }.getOrElse { false }
+                runCatching { QwenCoderBridge.load(preparedPath, threadConfig.threads) }.getOrElse { false }
             }
 
             binding.progressBar.isVisible = false
@@ -116,7 +116,17 @@ class MainActivity : AppCompatActivity() {
                     .putString(KEY_MODEL_PATH, requestedPath)
                     .putString(KEY_MODEL_LOCAL_PATH, preparedPath)
                     .apply()
-                updateStatus("Model ready (threads=$threads)")
+                val perfInfo = if (threadConfig.highPerformanceCores > 0) {
+                    " perf=${threadConfig.highPerformanceCores}/${threadConfig.totalCores}"
+                } else {
+                    ""
+                }
+                val heuristicInfo = if (threadConfig.usedHighPerformanceOnly) {
+                    " (performance cores)"
+                } else {
+                    ""
+                }
+                updateStatus("Model ready (threads=${threadConfig.threads}$perfInfo)$heuristicInfo")
             } else {
                 isModelReady = false
                 updateStatus("Failed to load model. Check the path, permissions, and GGUF format.")
