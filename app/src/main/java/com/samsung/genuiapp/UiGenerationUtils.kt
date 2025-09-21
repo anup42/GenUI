@@ -41,8 +41,9 @@ object UiGenerationUtils {
     }
 
     fun sanitizeHtml(html: String): String {
-        return if (html.contains("<html", ignoreCase = true)) {
-            html
+        val cleaned = html.removeCodeFences()
+        return if (cleaned.contains("<html", ignoreCase = true)) {
+            cleaned
         } else {
             """
                 <html>
@@ -54,7 +55,7 @@ object UiGenerationUtils {
                     </style>
                 </head>
                 <body>
-                    <pre>${html.escapeForHtml()}</pre>
+                    <pre>${cleaned.escapeForHtml()}</pre>
                 </body>
                 </html>
             """.trimIndent()
@@ -70,5 +71,29 @@ object UiGenerationUtils {
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
+    }
+
+    private fun String.removeCodeFences(): String {
+        if (!this.contains("```")) {
+            return this
+        }
+
+        val trimmed = this.trim()
+        var withoutLeadingFence = trimmed
+        if (withoutLeadingFence.startsWith("```")) {
+            val firstLineBreak = withoutLeadingFence.indexOf('\n')
+            withoutLeadingFence = if (firstLineBreak >= 0) {
+                withoutLeadingFence.substring(firstLineBreak + 1)
+            } else {
+                ""
+            }
+        }
+
+        var result = withoutLeadingFence.trimEnd()
+        if (result.endsWith("```")) {
+            result = result.substring(0, result.length - 3).trimEnd()
+        }
+
+        return result
     }
 }
