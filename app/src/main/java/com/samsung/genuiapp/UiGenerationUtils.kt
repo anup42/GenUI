@@ -4,6 +4,7 @@ object UiGenerationUtils {
     const val MAX_TOKENS = 1024
 
     private const val USER_PROMPT_PLACEHOLDER = "{{agent_text}}"
+    private const val EMPTY_AGENT_FALLBACK = "No agent output provided."
 
     private val USER_PROMPT_TEMPLATE = """
         TASK: Turn the agent output into a production-quality, mobile-first GUI for a WebView.
@@ -22,16 +23,18 @@ object UiGenerationUtils {
         - Output only ONE ```html code block.
         - Use only inline CSS/SVG; no external assets.
         - Put data-action and, when helpful, data-payload JSON on all interactive elements.
-    """.trimIndent()
 
-    private val MINIMAL_PROMPT_TEMPLATE = """
-        You are an expert front-end engineer producing accessible HTML/CSS.
+        # agent_output
+        {{agent_text}}
     """.trimIndent()
 
     fun buildPrompt(agentText: String, useMinimalPrompt: Boolean = false): String {
-        val sanitizedAgentText = agentText.ifBlank { "No agent output provided." }
-        val template = if (useMinimalPrompt) MINIMAL_PROMPT_TEMPLATE else USER_PROMPT_TEMPLATE
-        return template.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
+        val sanitizedAgentText = agentText.ifBlank { EMPTY_AGENT_FALLBACK }
+        return if (useMinimalPrompt) {
+            sanitizedAgentText
+        } else {
+            USER_PROMPT_TEMPLATE.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
+        }
     }
 
     fun sanitizeHtml(html: String): String {

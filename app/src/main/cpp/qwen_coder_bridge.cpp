@@ -60,9 +60,7 @@ FINAL CHECK
 
 
 static const char *kSystemInstruction =
-        "You are an expert front-end engineer. Generate polished HTML and CSS that can be "
-        "rendered directly inside a WebView. Avoid explanations. Include a single <style> "
-        "block at the top when CSS is required.";
+        "You are an expert front-end engineer producing accessible HTML/CSS.";
 
 static std::string apply_chat_template(const std::string &user_prompt) {
     if (user_prompt.find("<|im_start|>") != std::string::npos) {
