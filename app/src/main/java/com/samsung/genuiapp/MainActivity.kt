@@ -163,8 +163,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val prompt = binding.promptInput.text?.toString()?.trim().orEmpty()
-        if (prompt.isEmpty()) {
+        val agentText = binding.promptInput.text?.toString()?.trim().orEmpty()
+        if (agentText.isEmpty()) {
             updateStatus("Prompt cannot be empty.")
             return
         }
@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity() {
         updateStatus("Generating layout...")
 
         lifecycleScope.launch {
+            val prompt = buildPrompt(agentText)
             val output = withContext(Dispatchers.IO) {
                 runCatching { QwenCoderBridge.generate(prompt, MAX_TOKENS) }
                     .getOrElse { throwable -> "[error] ${throwable.localizedMessage}" }
@@ -212,6 +213,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
+    }
+
+    private fun buildPrompt(agentText: String): String {
+        val sanitizedAgentText = agentText.ifBlank { "No agent output provided." }
+        return USER_PROMPT_TEMPLATE.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
     }
 
     private fun updateStatus(message: String) {
@@ -384,5 +390,27 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_MODEL_LOCAL_PATH = "model_local_path"
         private const val MAX_TOKENS = 1024
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        private const val USER_PROMPT_PLACEHOLDER = "{{agent_text}}"
+        private val USER_PROMPT_TEMPLATE = """
+            TASK: Turn the agent output into a production-quality, mobile-first GUI for a WebView.
+
+            # runtime_config
+            {
+              "pattern_hint": "auto",
+              "interaction_style": "tap",
+              "javascript": "minimal",
+              "theme": { "mode": "light", "brand_color": "#0EA5E9" },
+              "i18n_locale": "en-IN",
+              "host_actions": ["open_link","call_contact","pay_bill","navigate","retry"]
+            }
+
+            # agent_text
+            {{agent_text}}
+
+            # constraints
+            - Output only ONE ```html code block.
+            - Use only inline CSS/SVG; no external assets.
+            - Put data-action and, when helpful, data-payload JSON on all interactive elements.
+        """.trimIndent()
     }
 }
