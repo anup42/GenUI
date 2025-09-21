@@ -4,8 +4,7 @@
     <string name="model_path_hint">Model file path (GGUF)</string>
     <string name="prompt_hint">Paste agent output to generate UI</string>
     <string name="load_model">Load Model</string>
-    <string name="generate_html">Generate UI</string>
-    <string name="generate_html_minimal">Generate Lite UI</string>
+    <string name="generate_html_minimal">Generate UI</string>
     <string name="sample_prompt">Bill due for SmartGrid Energy on 18 May 2024.&#10;Outstanding ₹2,450.&#10;Show summary with due date, autopay toggle, and call support option.</string>
     <string name="select_model_file">Browse model file</string>
     <string name="preview_title">Generated UI</string>

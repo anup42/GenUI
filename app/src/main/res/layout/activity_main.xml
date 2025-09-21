@@ -74,7 +74,7 @@
         android:layout_height="0dp"
         android:layout_marginTop="12dp"
         android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@id/generateButton"
+        app:layout_constraintBottom_toTopOf="@id/generateMinimalButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/statusText">
@@ -94,23 +94,13 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/generateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/generate_html"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/generateMinimalButton"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <com.google.android.material.button.MaterialButton
         android:id="@+id/generateMinimalButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
         android:text="@string/generate_html_minimal"
-        app:layout_constraintBaseline_toBaselineOf="@id/generateButton"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/generateButton" />
+        app:layout_constraintStart_toStartOf="parent" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -119,9 +109,9 @@
         android:layout_height="wrap_content"
         android:indeterminate="true"
         android:visibility="gone"
-        app:layout_constraintBaseline_toBaselineOf="@id/generateButton"
+        app:layout_constraintBaseline_toBaselineOf="@id/generateMinimalButton"
         app:layout_constraintStart_toEndOf="@id/generateMinimalButton"
-        app:layout_constraintTop_toTopOf="@id/generateButton"
+        app:layout_constraintTop_toTopOf="@id/generateMinimalButton"
         app:layout_constraintVertical_bias="0.5" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

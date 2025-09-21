@@ -52,12 +52,10 @@ class MainActivity : AppCompatActivity() {
         restoreLastModelPath()
         binding.promptInput.setText(getString(R.string.sample_prompt))
 
-        binding.generateButton.isEnabled = false
         binding.generateMinimalButton.isEnabled = false
 
         binding.modelPathLayout.setEndIconOnClickListener { openModelPicker() }
         binding.loadModelButton.setOnClickListener { loadModel() }
-        binding.generateButton.setOnClickListener { generateUi(useMinimalPrompt = false) }
         binding.generateMinimalButton.setOnClickListener { generateUi(useMinimalPrompt = true) }
     }
 
@@ -88,7 +86,6 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.isVisible = true
         updateStatus("Loading model...")
         binding.loadModelButton.isEnabled = false
-        binding.generateButton.isEnabled = false
         binding.generateMinimalButton.isEnabled = false
 
         val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
@@ -110,7 +107,6 @@ class MainActivity : AppCompatActivity() {
 
             if (success) {
                 isModelReady = true
-                binding.generateButton.isEnabled = true
                 binding.generateMinimalButton.isEnabled = true
                 getPreferences(MODE_PRIVATE).edit()
                     .putString(KEY_MODEL_PATH, requestedPath)
@@ -150,7 +146,6 @@ class MainActivity : AppCompatActivity() {
     private fun resetLoadingUi() {
         binding.progressBar.isVisible = false
         binding.loadModelButton.isEnabled = true
-        binding.generateButton.isEnabled = isModelReady
         binding.generateMinimalButton.isEnabled = isModelReady
     }
 
