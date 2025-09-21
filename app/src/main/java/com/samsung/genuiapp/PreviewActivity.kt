@@ -41,6 +41,7 @@ class PreviewActivity : AppCompatActivity() {
 
     private fun startGeneration() {
         val promptText = intent.getStringExtra(EXTRA_PROMPT_TEXT).orEmpty()
+        val useMinimalPrompt = intent.getBooleanExtra(EXTRA_USE_MINIMAL_PROMPT, false)
         if (promptText.isBlank()) {
             showError(getString(R.string.preview_error, getString(R.string.prompt_hint)))
             return
@@ -50,7 +51,7 @@ class PreviewActivity : AppCompatActivity() {
         binding.previewStatus.text = getString(R.string.preview_generating)
 
         lifecycleScope.launch {
-            val prompt = UiGenerationUtils.buildPrompt(promptText)
+            val prompt = UiGenerationUtils.buildPrompt(promptText, useMinimalPrompt)
             val output = withContext(Dispatchers.IO) {
                 runCatching { QwenCoderBridge.generate(prompt, UiGenerationUtils.MAX_TOKENS) }
                     .getOrElse { throwable -> "[error] ${throwable.localizedMessage}" }
@@ -76,5 +77,6 @@ class PreviewActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_PROMPT_TEXT = "extra_prompt_text"
+        const val EXTRA_USE_MINIMAL_PROMPT = "extra_use_minimal_prompt"
     }
 }

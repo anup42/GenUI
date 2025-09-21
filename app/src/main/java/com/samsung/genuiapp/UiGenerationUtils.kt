@@ -27,9 +27,17 @@ object UiGenerationUtils {
         - Put data-action and, when helpful, data-payload JSON on all interactive elements.
     """.trimIndent()
 
-    fun buildPrompt(agentText: String): String {
+    private val MINIMAL_PROMPT_TEMPLATE = """
+        Produce a mobile-friendly HTML UI inside a single ```html code block.
+
+        # agent_text
+        {{agent_text}}
+    """.trimIndent()
+
+    fun buildPrompt(agentText: String, useMinimalPrompt: Boolean = false): String {
         val sanitizedAgentText = agentText.ifBlank { "No agent output provided." }
-        return USER_PROMPT_TEMPLATE.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
+        val template = if (useMinimalPrompt) MINIMAL_PROMPT_TEMPLATE else USER_PROMPT_TEMPLATE
+        return template.replace(USER_PROMPT_PLACEHOLDER, sanitizedAgentText)
     }
 
     fun sanitizeHtml(html: String): String {

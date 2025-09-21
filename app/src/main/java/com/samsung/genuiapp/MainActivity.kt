@@ -53,10 +53,12 @@ class MainActivity : AppCompatActivity() {
         binding.promptInput.setText(getString(R.string.sample_prompt))
 
         binding.generateButton.isEnabled = false
+        binding.generateMinimalButton.isEnabled = false
 
         binding.modelPathLayout.setEndIconOnClickListener { openModelPicker() }
         binding.loadModelButton.setOnClickListener { loadModel() }
-        binding.generateButton.setOnClickListener { generateUi() }
+        binding.generateButton.setOnClickListener { generateUi(useMinimalPrompt = false) }
+        binding.generateMinimalButton.setOnClickListener { generateUi(useMinimalPrompt = true) }
     }
 
     private fun restoreLastModelPath() {
@@ -87,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         updateStatus("Loading model...")
         binding.loadModelButton.isEnabled = false
         binding.generateButton.isEnabled = false
+        binding.generateMinimalButton.isEnabled = false
 
         val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
         lifecycleScope.launch {
@@ -108,6 +111,7 @@ class MainActivity : AppCompatActivity() {
             if (success) {
                 isModelReady = true
                 binding.generateButton.isEnabled = true
+                binding.generateMinimalButton.isEnabled = true
                 getPreferences(MODE_PRIVATE).edit()
                     .putString(KEY_MODEL_PATH, requestedPath)
                     .putString(KEY_MODEL_LOCAL_PATH, preparedPath)
@@ -120,7 +124,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun generateUi() {
+    private fun generateUi(useMinimalPrompt: Boolean) {
         if (!isModelReady) {
             updateStatus("Load the model first.")
             return
@@ -134,6 +138,7 @@ class MainActivity : AppCompatActivity() {
 
         val previewIntent = Intent(this, PreviewActivity::class.java).apply {
             putExtra(PreviewActivity.EXTRA_PROMPT_TEXT, agentText)
+            putExtra(PreviewActivity.EXTRA_USE_MINIMAL_PROMPT, useMinimalPrompt)
         }
         startActivity(previewIntent)
     }
@@ -146,6 +151,7 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.isVisible = false
         binding.loadModelButton.isEnabled = true
         binding.generateButton.isEnabled = isModelReady
+        binding.generateMinimalButton.isEnabled = isModelReady
     }
 
     override fun onDestroy() {
