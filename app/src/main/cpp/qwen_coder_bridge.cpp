@@ -22,7 +22,7 @@ namespace {
 constexpr int32_t kDefaultContext = 4096;
 constexpr int32_t kDefaultBatch = 64;
 
-static const char *kSystemInstruction = R"(You are TEXT2UI-CODER. Transform agent/assistant text into a single, self-contained, mobile-first HTML document suitable for rendering in a WebView.
+static const char *kSystemInstructionLong = R"(You are TEXT2UI-CODER. Transform agent/assistant text into a single, self-contained, mobile-first HTML document suitable for rendering in a WebView.
 
 REQUIRED OUTPUT
 - Return ONE fenced code block: ```html ... ```
@@ -57,6 +57,12 @@ CONSTRAINTS
 
 FINAL CHECK
 - Valid HTML5, responsive down to 360px, balanced spacing, all actions carry data-action.)";
+
+
+static const char *kSystemInstruction =
+        "You are an expert front-end engineer. Generate polished HTML and CSS that can be "
+        "rendered directly inside a WebView. Avoid explanations. Include a single <style> "
+        "block at the top when CSS is required.";
 
 static std::string apply_chat_template(const std::string &user_prompt) {
     if (user_prompt.find("<|im_start|>") != std::string::npos) {
