@@ -7,10 +7,24 @@
     android:padding="16dp"
     tools:context=".MainActivity">
 
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/appToolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        android:elevation="0dp"
+        android:minHeight="56dp"
+        app:title="@string/app_header_title"
+        app:titleCentered="true"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/modelPathLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         app:endIconContentDescription="@string/select_model_file"
         app:endIconDrawable="@drawable/ic_file_open"
         app:endIconMode="custom"
@@ -18,7 +32,7 @@
         app:layout_constraintHorizontal_bias="0"
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/appToolbar">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/modelPathInput"
@@ -49,58 +63,18 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/loadModelButton" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/promptLayout"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/releaseModelButton">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/promptInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/prompt_hint"
-            android:inputType="textMultiLine"
-            android:minLines="4"
-            tools:text="@string/sample_prompt" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/generateButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/generate_html"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/promptLayout" />
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Small"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:indeterminate="true"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@id/generateButton"
-        app:layout_constraintStart_toEndOf="@id/generateButton"
-        app:layout_constraintTop_toTopOf="@id/generateButton"
-        app:layout_constraintVertical_bias="0.5" />
-
     <TextView
         android:id="@+id/statusText"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="16dp"
+        android:ellipsize="end"
+        android:maxLines="2"
         android:textAppearance="@style/TextAppearance.Material3.BodySmall"
         android:textColor="@android:color/darker_gray"
-        android:maxLines="2"
-        android:ellipsize="end"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/generateButton"
+        app:layout_constraintTop_toBottomOf="@id/releaseModelButton"
         tools:text="Waiting for input" />
 
     <WebView
@@ -109,9 +83,54 @@
         android:layout_height="0dp"
         android:layout_marginTop="12dp"
         android:background="@android:color/white"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/promptLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/statusText" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/promptLayout"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/generateButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/previewWebView">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/promptInput"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="top|start"
+            android:hint="@string/prompt_hint"
+            android:inputType="textMultiLine"
+            android:minLines="6"
+            android:overScrollMode="always"
+            android:scrollbars="vertical"
+            android:textCursorDrawable="@null"
+            tools:text="@string/sample_prompt" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/generateButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/generate_html"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="@android:style/Widget.DeviceDefault.Light.ProgressBar.Small"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:visibility="gone"
+        app:layout_constraintBaseline_toBaselineOf="@id/generateButton"
+        app:layout_constraintStart_toEndOf="@id/generateButton"
+        app:layout_constraintTop_toTopOf="@id/generateButton"
+        app:layout_constraintVertical_bias="0.5" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
