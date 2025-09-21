@@ -18,9 +18,6 @@ object UiGenerationUtils {
           "host_actions": ["open_link","call_contact","pay_bill","navigate","retry"]
         }
 
-        # agent_text
-        {{agent_text}}
-
         # constraints
         - Output only ONE ```html code block.
         - Use only inline CSS/SVG; no external assets.
@@ -28,10 +25,7 @@ object UiGenerationUtils {
     """.trimIndent()
 
     private val MINIMAL_PROMPT_TEMPLATE = """
-        Produce a mobile-friendly HTML UI inside a single ```html code block.
-
-        # agent_text
-        {{agent_text}}
+        You are an expert front-end engineer producing accessible HTML/CSS.
     """.trimIndent()
 
     fun buildPrompt(agentText: String, useMinimalPrompt: Boolean = false): String {
