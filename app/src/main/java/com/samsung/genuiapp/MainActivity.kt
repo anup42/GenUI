@@ -1,4 +1,4 @@
-package com.samsung.genuiapp
+﻿package com.samsung.genuiapp
 
 import android.Manifest
 import android.content.ContentResolver
@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         binding.modelPathLayout.setEndIconOnClickListener { openModelPicker() }
         binding.loadModelButton.setOnClickListener { loadModel() }
         binding.generateMinimalButton.setOnClickListener { generateUi(useMinimalPrompt = true) }
+        binding.generateHtmlButton.setOnClickListener { showStaticHtmlPreview() }
     }
 
     private fun restoreLastModelPath() {
@@ -135,6 +136,13 @@ class MainActivity : AppCompatActivity() {
         val previewIntent = Intent(this, PreviewActivity::class.java).apply {
             putExtra(PreviewActivity.EXTRA_PROMPT_TEXT, agentText)
             putExtra(PreviewActivity.EXTRA_USE_MINIMAL_PROMPT, useMinimalPrompt)
+        }
+        startActivity(previewIntent)
+    }
+
+    private fun showStaticHtmlPreview() {
+        val previewIntent = Intent(this, PreviewActivity::class.java).apply {
+            putExtra(PreviewActivity.EXTRA_HTML_ASSET_NAME, STATIC_HTML_ASSET)
         }
         startActivity(previewIntent)
     }
@@ -296,9 +304,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val STATIC_HTML_ASSET = "static_preview.html"
         private const val KEY_MODEL_PATH = "model_path"
         private const val KEY_MODEL_URI = "model_uri"
         private const val KEY_MODEL_LOCAL_PATH = "model_local_path"
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
     }
 }
+
+
+

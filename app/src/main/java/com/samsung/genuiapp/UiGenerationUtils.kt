@@ -1,4 +1,4 @@
-package com.samsung.genuiapp
+﻿package com.samsung.genuiapp
 
 object UiGenerationUtils {
     const val MAX_TOKENS = 1024
@@ -37,15 +37,34 @@ object UiGenerationUtils {
         }
     }
 
-    fun sanitizeHtml(html: String): String {
-        val cleaned = html.removeCodeFences()
-        return if (cleaned.contains("<html", ignoreCase = true)) {
-            cleaned
-        } else {
+    fun sanitizeHtml(html: String, treatMissingHtmlAsPlaintext: Boolean = true): String {
+        val cleaned = html.removeCodeFences().trim()
+        if (cleaned.contains("<html", ignoreCase = true)) {
+            return cleaned
+        }
+
+        if (cleaned.isEmpty()) {
+            return """
+                <html>
+                <head>
+                    <meta charset="utf-8" />
+                    <style>
+                        body { font-family: sans-serif; padding: 16px; background-color: #FAFAFA; }
+                        pre { white-space: pre-wrap; word-break: break-word; }
+                    </style>
+                </head>
+                <body>
+                    <pre>${EMPTY_AGENT_FALLBACK.escapeForHtml()}</pre>
+                </body>
+                </html>
+            """.trimIndent()
+        }
+
+        return if (treatMissingHtmlAsPlaintext) {
             """
                 <html>
                 <head>
-                    <meta charset=\"utf-8\" />
+                    <meta charset="utf-8" />
                     <style>
                         body { font-family: sans-serif; padding: 16px; background-color: #FAFAFA; }
                         pre { white-space: pre-wrap; word-break: break-word; }
@@ -53,6 +72,20 @@ object UiGenerationUtils {
                 </head>
                 <body>
                     <pre>${cleaned.escapeForHtml()}</pre>
+                </body>
+                </html>
+            """.trimIndent()
+        } else {
+            """
+                <html>
+                <head>
+                    <meta charset="utf-8" />
+                    <style>
+                        body { font-family: sans-serif; padding: 16px; background-color: #FAFAFA; }
+                    </style>
+                </head>
+                <body>
+                    $cleaned
                 </body>
                 </html>
             """.trimIndent()
@@ -94,3 +127,4 @@ object UiGenerationUtils {
         return result
     }
 }
+

@@ -1,4 +1,4 @@
-package com.samsung.genuiapp
+﻿package com.samsung.genuiapp
 
 import android.os.Bundle
 import android.webkit.WebSettings
@@ -22,7 +22,12 @@ class PreviewActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         configureWebView()
-        startGeneration()
+        val assetName = intent.getStringExtra(EXTRA_HTML_ASSET_NAME)
+        if (assetName.isNullOrBlank()) {
+            startGeneration()
+        } else {
+            renderStaticHtml(assetName)
+        }
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -37,6 +42,30 @@ class PreviewActivity : AppCompatActivity() {
             cacheMode = WebSettings.LOAD_NO_CACHE
         }
         binding.previewWebView.setBackgroundColor(0x00000000)
+    }
+
+    private fun renderStaticHtml(assetName: String) {
+        binding.previewStatus.text = getString(R.string.preview_loading_static)
+        binding.previewProgress.isVisible = true
+
+        lifecycleScope.launch {
+            val html = withContext(Dispatchers.IO) {
+                runCatching {
+                    assets.open(assetName).bufferedReader().use { it.readText() }
+                }.getOrNull()
+            }
+
+            if (html.isNullOrBlank()) {
+                showError(getString(R.string.preview_asset_error))
+                return@launch
+            }
+
+            val sanitized = UiGenerationUtils.sanitizeHtml(html, treatMissingHtmlAsPlaintext = false)
+            binding.previewProgress.isVisible = false
+            binding.previewWebView.isVisible = true
+            binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
+            binding.previewStatus.text = getString(R.string.preview_ready, sanitized.length)
+        }
     }
 
     private fun startGeneration() {
@@ -76,7 +105,12 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     companion object {
+        const val EXTRA_HTML_ASSET_NAME = "extra_html_asset_name"
         const val EXTRA_PROMPT_TEXT = "extra_prompt_text"
         const val EXTRA_USE_MINIMAL_PROMPT = "extra_use_minimal_prompt"
     }
 }
+
+
+
+
