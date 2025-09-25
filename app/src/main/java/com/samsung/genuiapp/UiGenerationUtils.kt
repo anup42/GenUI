@@ -39,7 +39,8 @@ object UiGenerationUtils {
 
     fun sanitizeHtml(html: String, treatMissingHtmlAsPlaintext: Boolean = true): String {
         val cleaned = html.removeCodeFences().trim()
-        if (cleaned.contains("<html", ignoreCase = true)) {
+        val trimmedStart = cleaned.trimStart()
+        if (trimmedStart.startsWith("<!doctype", ignoreCase = true) || cleaned.contains("<html", ignoreCase = true)) {
             return cleaned
         }
 
