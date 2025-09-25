@@ -13,12 +13,6 @@ object QwenCoderBridge {
         val useEliteVariant = shouldUseEliteVariant()
         Log.i(TAG, "Init: device=${Build.DEVICE}, hardware=${Build.HARDWARE}, useEliteHint=$useEliteVariant")
 
-        vulkanActive = tryLoad("ggml-vulkan", required = false)
-
-        if (!vulkanActive && useEliteVariant) {
-            vulkanActive = tryLoad("ggml-vulkan_elite", required = false)
-        }
-
         if (useEliteVariant) {
             val eliteGgml = tryLoad("ggml_elite", required = false)
             val eliteLlama = tryLoad("llama_elite", required = false)
