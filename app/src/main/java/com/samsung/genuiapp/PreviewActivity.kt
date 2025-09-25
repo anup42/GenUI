@@ -92,7 +92,8 @@ class PreviewActivity : AppCompatActivity() {
                 showError(getString(R.string.preview_error, output.removePrefix("[error] ").trim()))
             } else {
                 val sanitized = UiGenerationUtils.sanitizeHtml(output)
-                val tokenCount = UiGenerationUtils.estimateTokenCount(sanitized)
+                val bridgeTokens = QwenCoderBridge.lastTokenCount().takeIf { it > 0 }
+                val tokenCount = bridgeTokens ?: UiGenerationUtils.estimateTokenCount(sanitized)
                 binding.previewWebView.isVisible = true
                 binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
                 binding.previewStatus.text = getString(R.string.preview_ready, tokenCount)

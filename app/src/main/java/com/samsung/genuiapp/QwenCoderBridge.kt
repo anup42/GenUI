@@ -78,9 +78,11 @@ object QwenCoderBridge {
     fun isVulkanActive(): Boolean = vulkanActive
     fun isEliteActive(): Boolean = eliteActive
     fun loadedLibraries(): List<String> = loadedLibs.toList()
+    fun lastTokenCount(): Int = nativeLastTokenCount()
 
     private external fun nativeInit(modelPath: String, nThreads: Int): Boolean
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String
     private external fun nativeRelease()
+    private external fun nativeLastTokenCount(): Int
 }
 

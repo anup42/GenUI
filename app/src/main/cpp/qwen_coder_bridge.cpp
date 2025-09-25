@@ -2,6 +2,7 @@
 #include <android/log.h>
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@ static std::mutex g_mutex;
 static llama_model *g_model = nullptr;
 static llama_context *g_ctx = nullptr;
 static bool g_backend_initialized = false;
+static std::atomic<int> g_last_generated_tokens{0};
 
 namespace {
 
@@ -217,14 +219,17 @@ static bool prefill_prompt(const std::vector<llama_token> &tokens, llama_pos &n_
 
 static std::string generate_text(const std::vector<llama_token> &prompt_tokens, int max_tokens) {
     llama_kv_cache_clear(g_ctx);
+    g_last_generated_tokens.store(0);
 
     llama_pos n_past = 0;
     if (!prefill_prompt(prompt_tokens, n_past)) {
+        g_last_generated_tokens.store(0);
         return "[error] Failed to prefill prompt.";
     }
 
     const llama_model *model = g_model;
     if (!model) {
+        g_last_generated_tokens.store(0);
         return "[error] Model is not available.";
     }
 
@@ -238,6 +243,7 @@ static std::string generate_text(const std::vector<llama_token> &prompt_tokens, 
     for (int i = 0; i < to_generate; ++i) {
         llama_token next = greedy_from_logits(g_ctx, model);
         if (next < 0) {
+            g_last_generated_tokens.store(0);
             return "[error] Failed to sample token.";
         }
         if (next == eos) {
@@ -249,6 +255,7 @@ static std::string generate_text(const std::vector<llama_token> &prompt_tokens, 
             break;
         }
         if (!decode_one(g_ctx, next, n_past)) {
+            g_last_generated_tokens.store(0);
             return "[error] Failed to decode token.";
         }
         ++n_past;
@@ -261,11 +268,21 @@ static std::string generate_text(const std::vector<llama_token> &prompt_tokens, 
 
     if (output.empty()) {
         output = "[error] Model returned empty response.";
+        g_last_generated_tokens.store(0);
+    } else {
+        g_last_generated_tokens.store(generated);
     }
     return output;
 }
 
 }  // namespace
+
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_samsung_genuiapp_QwenCoderBridge_nativeLastTokenCount(
+        JNIEnv * /*env*/, jobject /*thiz*/) {
+    return g_last_generated_tokens.load();
+}
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_samsung_genuiapp_QwenCoderBridge_nativeInit(
