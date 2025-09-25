@@ -61,10 +61,11 @@ class PreviewActivity : AppCompatActivity() {
             }
 
             val sanitized = UiGenerationUtils.sanitizeHtml(html, treatMissingHtmlAsPlaintext = false)
+            val tokenCount = UiGenerationUtils.estimateTokenCount(sanitized)
             binding.previewProgress.isVisible = false
             binding.previewWebView.isVisible = true
             binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
-            binding.previewStatus.text = getString(R.string.preview_ready, sanitized.length)
+            binding.previewStatus.text = getString(R.string.preview_ready, tokenCount)
         }
     }
 
@@ -91,9 +92,10 @@ class PreviewActivity : AppCompatActivity() {
                 showError(getString(R.string.preview_error, output.removePrefix("[error] ").trim()))
             } else {
                 val sanitized = UiGenerationUtils.sanitizeHtml(output)
+                val tokenCount = UiGenerationUtils.estimateTokenCount(sanitized)
                 binding.previewWebView.isVisible = true
                 binding.previewWebView.loadDataWithBaseURL(null, sanitized, "text/html", "utf-8", null)
-                binding.previewStatus.text = getString(R.string.preview_ready, sanitized.length)
+                binding.previewStatus.text = getString(R.string.preview_ready, tokenCount)
             }
         }
     }

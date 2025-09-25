@@ -11,7 +11,7 @@
     <string name="preview_title">Generated UI</string>
     <string name="preview_generating">Generating layout...</string>
     <string name="preview_loading_static">Loading static HTML...</string>
-    <string name="preview_ready">Preview ready (%1$d chars)</string>
+    <string name="preview_ready">Preview ready (%1$d tokens)</string>
     <string name="preview_error">Unable to render: %1$s</string>
     <string name="preview_asset_error">Static HTML asset missing or empty. Update static_preview.html and try again.</string>
 </resources>

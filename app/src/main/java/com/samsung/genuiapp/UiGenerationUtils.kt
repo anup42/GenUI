@@ -6,6 +6,9 @@ object UiGenerationUtils {
     private const val USER_PROMPT_PLACEHOLDER = "{{agent_text}}"
     private const val EMPTY_AGENT_FALLBACK = "No agent output provided."
 
+    private val TAG_REGEX = Regex("<[^>]+>")
+    private val TOKEN_REGEX = Regex("\\S+")
+
     private val USER_PROMPT_TEMPLATE = """
         TASK: Turn the agent output into a production-quality, mobile-first GUI for a WebView.
 
@@ -91,6 +94,13 @@ object UiGenerationUtils {
                 </html>
             """.trimIndent()
         }
+    }
+
+    fun estimateTokenCount(raw: String): Int {
+        if (raw.isBlank()) return 0
+        val withoutFences = raw.removeCodeFences()
+        val withoutTags = TAG_REGEX.replace(withoutFences, " ")
+        return TOKEN_REGEX.findAll(withoutTags).count()
     }
 
     fun isErrorOutput(output: String): Boolean {
