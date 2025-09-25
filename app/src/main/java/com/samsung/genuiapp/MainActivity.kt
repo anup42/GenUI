@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import android.util.Log
 import com.samsung.genuiapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,7 +90,14 @@ class MainActivity : AppCompatActivity() {
         binding.loadModelButton.isEnabled = false
         binding.generateMinimalButton.isEnabled = false
 
-        val threads = maxOf(1, Runtime.getRuntime().availableProcessors() - 1)
+        val cpuCount = Runtime.getRuntime().availableProcessors().coerceAtLeast(2)
+        val threads = when {
+            cpuCount >= 10 -> cpuCount - 2
+            cpuCount >= 8 -> cpuCount - 1
+            cpuCount >= 6 -> cpuCount - 1
+            else -> cpuCount
+        }.coerceAtLeast(4).coerceAtMost(8).coerceAtMost(cpuCount)
+        Log.i("MainActivity", "Loading model threads=$threads vulkan=${QwenCoderBridge.isVulkanActive()} elite=${QwenCoderBridge.isEliteActive()} libs=${QwenCoderBridge.loadedLibraries().joinToString()}")
         lifecycleScope.launch {
             val preparedPath = withContext(Dispatchers.IO) { prepareModelFile(requestedPath) }
             if (preparedPath == null) {
@@ -311,6 +319,8 @@ class MainActivity : AppCompatActivity() {
         private const val DEFAULT_MODEL_PATH = "/sdcard/Download/qwen2.5-0.5b-instruct-q4_k_m.gguf"
     }
 }
+
+
 
 
 

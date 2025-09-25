@@ -4,22 +4,28 @@ project(QwenCoder LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-set(_LLAMA_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../../llama cpp Code/main")
-file(TO_CMAKE_PATH "${_LLAMA_BASE_DIR}" LLAMA_BASE_DIR)
-set(CPP_INCLUDES_DIR "${LLAMA_BASE_DIR}/cpp_includes")
-set(JNI_LIBS_DIR "${LLAMA_BASE_DIR}/jniLibs/${ANDROID_ABI}")
+set(JNI_LIBS_DIR "${CMAKE_CURRENT_LIST_DIR}/../jniLibs/${ANDROID_ABI}")
+set(LLAMA_VENDOR_DIR "${CMAKE_CURRENT_LIST_DIR}/llama")
+set(LLAMA_INCLUDE_DIR "${LLAMA_VENDOR_DIR}/include")
+set(GGML_INCLUDE_DIR "${LLAMA_VENDOR_DIR}/ggml")
+set(COMMON_INCLUDE_DIR "${LLAMA_VENDOR_DIR}/common")
 
 if (NOT EXISTS "${JNI_LIBS_DIR}/libllama.so")
-    message(FATAL_ERROR "Expected prebuilt llama.cpp libraries in ${JNI_LIBS_DIR}")
+    message(FATAL_ERROR "Expected libllama.so in ${JNI_LIBS_DIR}; run scripts/build_llama_snapdragon8elite.sh")
 endif()
 
-include_directories("${CPP_INCLUDES_DIR}")
+if (NOT EXISTS "${JNI_LIBS_DIR}/libggml.so")
+    message(FATAL_ERROR "Expected libggml.so in ${JNI_LIBS_DIR}; run scripts/build_llama_snapdragon8elite.sh")
+endif()
+
+include_directories(
+        "${LLAMA_INCLUDE_DIR}"
+        "${GGML_INCLUDE_DIR}"
+        "${COMMON_INCLUDE_DIR}"
+)
 
 add_library(ggml SHARED IMPORTED)
 set_target_properties(ggml PROPERTIES IMPORTED_LOCATION "${JNI_LIBS_DIR}/libggml.so")
-
-add_library(ggml_base SHARED IMPORTED)
-set_target_properties(ggml_base PROPERTIES IMPORTED_LOCATION "${JNI_LIBS_DIR}/libggml-base.so")
 
 add_library(llama SHARED IMPORTED)
 set_target_properties(llama PROPERTIES IMPORTED_LOCATION "${JNI_LIBS_DIR}/libllama.so")
@@ -45,9 +51,11 @@ endif()
 set(LINK_LIBS
         llama
         ggml
-        ggml_base
         ${log-lib}
         ${android-lib}
         ${z-lib})
 
+set_source_files_properties(qwen_coder_bridge.cpp PROPERTIES COMPILE_FLAGS "-Wno-unused-parameter")
+
 target_link_libraries(native-lib PRIVATE ${LINK_LIBS})
+

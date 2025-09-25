@@ -54,7 +54,7 @@ android {
         }
     }
 
-    sourceSets["main"].jniLibs.srcDirs("src/main/jniLibs", "../llama cpp Code/main/jniLibs")
+    sourceSets["main"].jniLibs.srcDirs("src/main/jniLibs")
 }
 
 dependencies {
@@ -66,4 +66,5 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation("androidx.webkit:webkit:1.9.0")
 }
+
 
